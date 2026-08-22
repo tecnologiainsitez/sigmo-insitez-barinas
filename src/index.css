@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+@layer base {
+  html,
+  body {
+    width: 100%;
+    min-width: 320px;
+    margin: 0;
+    padding: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: auto;
+  }
+}
+
+/* Modern & highly visible custom scrollbars for horizontal and vertical scrolling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0d9488;
+  border-radius: 9999px;
+  border: 2px solid #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0f766e;
+}
+
+::-webkit-scrollbar-corner {
+  background: #f1f5f9;
+}
+
+/* Firefox scrollbar support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #0d9488 #f1f5f9;
+}
+
+/* Utility class for containers requiring clear horizontal scrolling on small screens */
+.custom-scrollbar-x {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar {
+  height: 8px;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 8px;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-thumb {
+  background: #0d9488;
+  border-radius: 8px;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-thumb:hover {
+  background: #0f766e;
+}
+
+/* Print optimization: Prints ONLY the active printable medical record modal */
+@media print {
+  /* Hide the base app, all standard views, fixed overlays, backdrops, and other modals */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide the entire React root tree when printing via portal or hide all other elements */
+  #root,
+  #appointment-detail-modal,
+  .no-print,
+  .print\:hidden,
+  header,
+  nav,
+  footer {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    left: -99999px !important;
+    top: -99999px !important;
+  }
+
+  /* Position the second modal (Print Medical Record Modal) cleanly at the very top left (0,0) */
+  #print-medical-record-portal {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+    z-index: 999999 !important;
+  }
+
+  #printable-medical-record-container {
+    position: relative !important;
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #printable-medical-record {
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Hide print buttons and controls */
+  #print-medical-record-portal .no-print,
+  #print-medical-record-portal .print\:hidden,
+  #print-medical-record-portal button {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  @page {
+    size: letter portrait;
+    margin: 8mm 10mm 8mm 10mm;
+  }
+}

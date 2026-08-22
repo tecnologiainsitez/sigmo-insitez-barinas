@@ -1,0 +1,6 @@
+{
+  "name": "INSITEZ Barinas — Sistema de Citas y Gestión Clínica",
+  "description": "Sistema de gestión de citas médicas y atención integral de INSITEZ - UNELLEZ Ezequiel Zamora con sincronización bidireccional y roles RBAC.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

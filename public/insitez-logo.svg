@@ -1,0 +1,62 @@
+<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="insitezBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0072CE" />
+      <stop offset="60%" stop-color="#0284C7" />
+      <stop offset="100%" stop-color="#0369A1" />
+    </linearGradient>
+
+    <linearGradient id="insitezYellow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+
+    <linearGradient id="insitezGreen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#15803D" />
+      <stop offset="100%" stop-color="#166534" />
+    </linearGradient>
+
+    <linearGradient id="insitezRed" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#DC2626" />
+      <stop offset="50%" stop-color="#B91C1C" />
+      <stop offset="100%" stop-color="#881337" />
+    </linearGradient>
+
+    <radialGradient id="insitezMetal" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="50%" stop-color="#CBD5E1" />
+      <stop offset="85%" stop-color="#64748B" />
+      <stop offset="100%" stop-color="#334155" />
+    </radialGradient>
+  </defs>
+
+  <!-- Left Cross Quadrants (Blue + Yellow + ECG) -->
+  <path d="M190 40 H250 V190 H100 V130 H190 Z" fill="url(#insitezBlue)" />
+  <path d="M100 130 H190 V190 H100 Z" fill="#0284C7" />
+  <path d="M100 190 H190 V290 H250 V200 H190 V190 Z" fill="url(#insitezYellow)" />
+  <path d="M100 190 H250 V260 H190 V290 H100 V190 Z" fill="url(#insitezYellow)" />
+  <path d="M190 200 H250 V290 H190 Z" fill="url(#insitezYellow)" />
+
+  <!-- ECG Line -->
+  <path d="M95 190 H140 L155 165 L170 230 L185 130 L200 220 L215 175 L225 190 H250" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+
+  <!-- Right Section: Barinas Territory Map Silhouette (Green) -->
+  <path d="M250 40 H310 V130 H400 V250 H310 V290 H250 Z" fill="url(#insitezGreen)" />
+  <path d="M250 50 C260 65, 270 70, 272 88 C274 105, 255 120, 258 140 C262 160, 248 178, 238 198 C228 218, 212 230, 215 250 C218 270, 238 278, 255 292 C275 305, 300 295, 312 280 C325 260, 338 245, 352 230 C370 210, 390 195, 395 170 C398 150, 388 135, 380 130 L310 130 L310 50 Z" fill="#15803D" />
+  <path d="M252 45 C262 65, 272 70, 274 88 C276 105, 257 120, 260 140 C264 160, 250 178, 240 198 C230 218, 214 230, 217 250 C220 270, 240 278, 257 292" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+
+  <!-- Stethoscope (Crimson Red) -->
+  <path d="M190 320 C120 310, 95 350, 110 390 C125 430, 200 450, 275 410 C330 380, 370 380, 395 400 C415 415, 410 445, 385 460 C360 475, 310 475, 280 435" stroke="url(#insitezRed)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <path d="M200 315 C150 310, 115 340, 130 380 C145 420, 210 430, 280 395 C340 365, 385 365, 415 390 C435 410, 430 440, 400 460 C370 475, 320 465, 285 430" stroke="#991B1B" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <path d="M340 375 C365 340, 400 345, 420 370 L410 405" stroke="#991B1B" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <circle cx="282" cy="430" r="10" fill="#7F1D1D" />
+  <circle cx="340" cy="460" r="10" fill="#7F1D1D" />
+
+  <!-- Chestpiece -->
+  <g transform="translate(195, 335) rotate(-15)">
+    <circle cx="0" cy="0" r="32" fill="url(#insitezMetal)" stroke="#991B1B" stroke-width="4" />
+    <circle cx="0" cy="0" r="24" fill="#FFFFFF" stroke="#475569" stroke-width="3" />
+    <circle cx="0" cy="0" r="10" fill="url(#insitezRed)" />
+    <circle cx="-3" cy="-3" r="3" fill="#FFFFFF" opacity="0.8" />
+  </g>
+</svg>

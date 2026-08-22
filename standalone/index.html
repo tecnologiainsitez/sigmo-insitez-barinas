@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Citas Médicas Offline-First</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .animate-pulse-slow { animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    /* Custom visible scrollbars for horizontal scrolling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #0d9488;
+      border-radius: 9999px;
+      border: 2px solid #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #0f766e;
+    }
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #0d9488 #f1f5f9;
+    }
+    .custom-scrollbar-x {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col font-sans overflow-x-auto w-full">
+
+  <!-- ========================================================================= -->
+  <!-- 1. BARRA SUPERIOR (HEADER) CON INDICADOR DE RED Y SESIÓN RBAC            -->
+  <!-- ========================================================================= -->
+  <header class="bg-slate-900 text-white sticky top-0 z-40 shadow-md border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Marca & Centro de Salud -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white font-bold shadow-sm">
+          <i data-lucide="activity" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
+            Centro de Salud San Rafael
+            <span class="text-[10px] bg-teal-900/80 text-teal-300 border border-teal-700 px-1.5 py-0.2 rounded font-mono font-bold">GAS $0/mes</span>
+          </div>
+          <div class="text-[11px] text-slate-400">Sistema Offline-First con Notificaciones Multicanal</div>
+        </div>
+      </div>
+
+      <!-- Indicador de Red & Control de Sincronización -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Badge de Estado de Red -->
+        <div id="netStatusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-950 text-emerald-300 border border-emerald-700">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="netStatusText">Conectado (Online)</span>
+        </div>
+
+        <!-- Botón Simular Modo Offline -->
+        <button id="toggleOfflineBtn" class="px-2.5 py-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition flex items-center gap-1">
+          <i data-lucide="wifi-off" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Simular Offline</span>
+        </button>
+
+        <!-- Botón Forzar Sincronización -->
+        <button id="forceSyncBtn" class="px-2.5 py-1 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition flex items-center gap-1 shadow-sm">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span id="syncBtnText">Sincronizar (<span id="pendingCountBadge">0</span>)</span>
+        </button>
+
+        <!-- Datos del Usuario Logueado & Botón Cerrar Sesión -->
+        <div id="userProfileBar" class="hidden flex items-center gap-2 pl-2 border-l border-slate-700">
+          <div class="text-right">
+            <div id="userNameDisplay" class="text-xs font-bold text-slate-200">Usuario</div>
+            <div id="userRoleBadge" class="text-[10px] uppercase font-bold text-teal-400">ROL</div>
+          </div>
+          <button id="logoutBtn" title="Cerrar Sesión" class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Menú de Navegación por Módulos Dinámicos (RBAC) -->
+    <nav id="mainNavTabs" class="hidden bg-slate-950 border-t border-slate-800/80 px-4">
+      <div class="max-w-7xl mx-auto flex items-center gap-1 overflow-x-auto text-xs py-1">
+        
+        <!-- Tab 1: Citas (Analista & Admin: Completo | Jefe: Lectura) -->
+        <button data-tab="tab-citas" class="nav-tab-btn active px-3 py-1.5 rounded-md font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition">
+          <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+          <span>Gestión de Citas</span>
+          <span id="citasCountBadge" class="bg-slate-800 text-[10px] px-1.5 rounded text-slate-400">0</span>
+        </button>
+
+        <!-- Tab 2: Médicos y Especialidades (Analista & Admin) -->
+        <button data-tab="tab-medicos" id="navMedicosBtn" class="nav-tab-btn px-3 py-1.5 rounded-md font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition">
+          <i data-lucide="stethoscope" class="w-3.5 h-3.5"></i>
+          <span>Médicos y Especialidades</span>
+        </button>
+
+        <!-- Tab 3: Estadísticas y Planificación (Jefe & Admin) -->
+        <button data-tab="tab-stats" id="navStatsBtn" class="nav-tab-btn px-3 py-1.5 rounded-md font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition">
+          <i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i>
+          <span>Estadísticas y Planificación</span>
+        </button>
+
+        <!-- Tab 4: Gestión de Usuarios y Sistema (Admin) -->
+        <button data-tab="tab-usuarios" id="navUsuariosBtn" class="nav-tab-btn px-3 py-1.5 rounded-md font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition">
+          <i data-lucide="users" class="w-3.5 h-3.5"></i>
+          <span>Gestión de Usuarios (Admin)</span>
+        </button>
+
+        <!-- Tab 5: Cola de Sincronización & Logs -->
+        <button data-tab="tab-sync" class="nav-tab-btn ml-auto px-3 py-1.5 rounded-md font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition">
+          <i data-lucide="database" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Cola IndexedDB (<span id="queueCountSub">0</span>)</span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 2. CONTENEDOR PRINCIPAL DE VISTAS                                         -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 space-y-4">
+
+    <!-- A. VISTA: PANTALLA DE LOGIN (RBAC) -->
+    <div id="view-login" class="max-w-md mx-auto my-12 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden animate-fadeIn">
+      <div class="bg-gradient-to-r from-teal-700 to-slate-900 text-white p-6 text-center">
+        <div class="w-12 h-12 rounded-xl bg-white/10 backdrop-blur mx-auto flex items-center justify-center mb-3">
+          <i data-lucide="shield-check" class="w-6 h-6 text-teal-300"></i>
+        </div>
+        <h2 class="text-lg font-bold">Control de Acceso (RBAC)</h2>
+        <p class="text-xs text-teal-100 mt-1">Autenticación local/remota con roles definidos</p>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <!-- Selector rápido de rol para pruebas -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+          <div class="text-[11px] font-bold text-slate-600 mb-2 uppercase tracking-wide flex items-center gap-1">
+            <i data-lucide="zap" class="w-3 h-3 text-amber-500"></i> Acceso Rápido por Rol (Demostración):
+          </div>
+          <div class="grid grid-cols-3 gap-1.5 text-xs">
+            <button type="button" onclick="window.app.quickLogin('ANALISTA')" class="p-2 bg-white hover:bg-teal-50 text-teal-800 border border-teal-200 rounded-lg font-semibold text-center transition">
+              👩‍⚕️ Analista
+              <span class="block text-[9px] text-slate-500 font-normal">Citas & Médicos</span>
+            </button>
+            <button type="button" onclick="window.app.quickLogin('JEFE')" class="p-2 bg-white hover:bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg font-semibold text-center transition">
+              👔 Jefe
+              <span class="block text-[9px] text-slate-500 font-normal">Estadísticas</span>
+            </button>
+            <button type="button" onclick="window.app.quickLogin('DESARROLLADOR_ADMIN')" class="p-2 bg-white hover:bg-purple-50 text-purple-800 border border-purple-200 rounded-lg font-semibold text-center transition">
+              👨‍💻 Admin
+              <span class="block text-[9px] text-slate-500 font-normal">Control Total</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Formulario Manual de Credenciales -->
+        <form id="loginForm" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1" for="loginEmail">Correo Electrónico / Usuario</label>
+            <div class="relative">
+              <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="email" id="loginEmail" required value="analista@salud.com" class="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-slate-800 bg-white" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1" for="loginPassword">Contraseña</label>
+            <div class="relative">
+              <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="password" id="loginPassword" required value="salud123" class="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-slate-800 bg-white" />
+            </div>
+          </div>
+
+          <div id="loginErrorMsg" class="hidden p-2.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg font-medium"></div>
+
+          <button type="submit" class="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+            <i data-lucide="log-in" class="w-4 h-4"></i>
+            Iniciar Sesión
+          </button>
+        </form>
+
+        <div class="text-[11px] text-center text-slate-500">
+          💡 La contraseña por defecto de los 3 usuarios semilla es: <code class="font-mono bg-slate-100 px-1 py-0.5 rounded font-bold text-slate-700">salud123</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- B. VISTA 1: MÓDULO GESTIÓN DE CITAS (Analista write / Jefe read / Admin full) -->
+    <div id="view-citas" class="hidden space-y-4">
+      
+      <!-- Formulario de Agendamiento (Oculto para Rol JEFE en modo solo lectura) -->
+      <div id="citasFormCard" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="bg-slate-50 border-b border-slate-200 p-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <i data-lucide="calendar-plus" class="w-4 h-4 text-teal-600"></i>
+              Agendar Cita Médica (Búsqueda Primaria por Cédula)
+            </h2>
+            <p class="text-xs text-slate-500">Entrada obligatoria de Cédula de Identidad y registro de Historia Médica</p>
+          </div>
+          <!-- Presets rápidos -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[11px] text-slate-400 font-medium">Cédulas Demo:</span>
+            <button type="button" onclick="window.app.fillPresetCedula('0801199512345')" class="px-2 py-0.5 text-[10px] bg-teal-50 text-teal-700 border border-teal-200 rounded font-medium">0801199512345 (María L.)</button>
+            <button type="button" onclick="window.app.fillPresetCedula('1712198898765')" class="px-2 py-0.5 text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 rounded font-medium">1712198898765 (José R.)</button>
+          </div>
+        </div>
+
+        <form id="appointmentForm" class="p-4 space-y-4">
+          <!-- Entrada Primaria: Cédula & Paciente -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-3 bg-teal-50/50 p-3 rounded-xl border border-teal-100">
+            <div class="md:col-span-4">
+              <label class="block text-xs font-semibold text-slate-700 mb-1" for="pacienteCedula">1. Cédula de Identidad / DNI *</label>
+              <div class="relative">
+                <i data-lucide="id-card" class="w-4 h-4 text-teal-600 absolute left-3 top-2.5"></i>
+                <input type="text" id="pacienteCedula" required placeholder="Ej. 0801199512345" class="w-full pl-9 pr-3 py-2 text-xs font-mono font-semibold border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white" />
+              </div>
+            </div>
+
+            <div class="md:col-span-4">
+              <label class="block text-xs font-semibold text-slate-700 mb-1" for="pacienteNombre">Nombre Completo del Paciente *</label>
+              <input type="text" id="pacienteNombre" required placeholder="Ej. María Fernanda López" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white" />
+            </div>
+
+            <div class="md:col-span-4">
+              <label class="block text-xs font-semibold text-slate-700 mb-1" for="pacienteEmail">Correo Electrónico (para adjunto .ICS)</label>
+              <input type="email" id="pacienteEmail" placeholder="paciente@correo.com" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white" />
+            </div>
+          </div>
+
+          <!-- Historia Médica -->
+          <div class="bg-rose-50/40 p-3 rounded-xl border border-rose-100 space-y-2">
+            <label class="block text-xs font-bold text-rose-900 flex items-center gap-1.5" for="pacienteHistoria">
+              <i data-lucide="activity" class="w-3.5 h-3.5 text-rose-600"></i>
+              2. Historia Médica & Antecedentes Clínicos:
+            </label>
+            <textarea id="pacienteHistoria" rows="2" placeholder="Alergias a fármacos, enfermedades crónicas (hipertensión, diabetes), antecedentes quirúrgicos..." class="w-full p-2.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"></textarea>
+          </div>
+
+          <!-- Especialidad, Médico, Fecha y Hora -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1" for="selectEspecialidad">Especialidad *</label>
+              <select id="selectEspecialidad" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1" for="selectMedico">Médico Especialista *</label>
+              <select id="selectMedico" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1" for="inputFecha">Fecha *</label>
+              <input type="date" id="inputFecha" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1" for="inputHora">Hora *</label>
+              <select id="inputHora" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white font-mono">
+                <option value="08:00">08:00 hrs</option>
+                <option value="08:30">08:30 hrs</option>
+                <option value="09:00">09:00 hrs</option>
+                <option value="09:30">09:30 hrs</option>
+                <option value="10:00" selected>10:00 hrs</option>
+                <option value="10:30">10:30 hrs</option>
+                <option value="11:00">11:00 hrs</option>
+                <option value="11:30">11:30 hrs</option>
+                <option value="12:00">12:00 hrs</option>
+                <option value="14:00">14:00 hrs</option>
+                <option value="14:30">14:30 hrs</option>
+                <option value="15:00">15:00 hrs</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+            <span class="text-[11px] text-slate-400">Persistencia local inmediata en IndexedDB + Cola de mutaciones</span>
+            <button type="submit" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5">
+              <i data-lucide="check" class="w-4 h-4"></i> Agendar Cita
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Aviso para Rol Jefe en Modo Lectura -->
+      <div id="jefeReadOnlyBanner" class="hidden p-3 bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-xl text-xs flex items-center gap-2">
+        <i data-lucide="info" class="w-4 h-4 text-indigo-600"></i>
+        <span><b>Rol Jefe:</b> Modo de solo lectura habilitado para la agenda de citas. Para análisis y métricas, consulte el módulo <b>Estadísticas</b>.</span>
+      </div>
+
+      <!-- Listado de Citas -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide">Agenda y Sala de Espera</h3>
+            <span id="citasTotalLabel" class="text-[11px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-mono font-bold">0 citas</span>
+          </div>
+
+          <!-- Filtro de Búsqueda -->
+          <div class="flex items-center gap-2">
+            <div class="relative">
+              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2"></i>
+              <input type="text" id="searchCitasInput" placeholder="Buscar por Cédula, nombre..." class="pl-8 pr-3 py-1 text-xs border border-slate-300 rounded-lg w-52 bg-white" />
+            </div>
+            <select id="filterStatusSelect" class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-white">
+              <option value="ALL">Todos los Estados</option>
+              <option value="CONFIRMED">Confirmada</option>
+              <option value="IN_WAITING_ROOM">En Sala de Espera</option>
+              <option value="IN_CONSULTATION">En Consulta</option>
+              <option value="COMPLETED">Completada</option>
+              <option value="CANCELLED">Cancelada</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+              <tr>
+                <th class="py-2.5 px-3">Hora / Fecha</th>
+                <th class="py-2.5 px-3">Cédula & Paciente</th>
+                <th class="py-2.5 px-3">Historia Médica</th>
+                <th class="py-2.5 px-3">Especialidad & Médico</th>
+                <th class="py-2.5 px-3">Estado</th>
+                <th class="py-2.5 px-3">Sync</th>
+                <th class="py-2.5 px-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="citasTableBody" class="divide-y divide-slate-100">
+              <!-- Renderizado dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- C. VISTA 2: MÓDULO MÉDICOS Y ESPECIALIDADES (Analista & Admin) -->
+    <div id="view-medicos" class="hidden space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        
+        <!-- Formulario Médico -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+            <i data-lucide="user-plus" class="w-4 h-4 text-teal-600"></i> Registrar / Editar Médico
+          </h3>
+          <form id="doctorForm" class="space-y-2.5 text-xs">
+            <input type="hidden" id="doctorId" />
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Nombre Completo *</label>
+              <input type="text" id="doctorNombre" required placeholder="Dr. Alejandro Morales" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Especialidad *</label>
+              <select id="doctorEspecialidadSelect" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Horario de Atención *</label>
+              <input type="text" id="doctorHorario" required placeholder="08:00 - 14:00" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Consultorio / Box</label>
+              <input type="text" id="doctorConsultorio" placeholder="Consultorio 101" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white" />
+            </div>
+            <button type="submit" class="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg transition">Guardar Médico en IndexedDB</button>
+          </form>
+        </div>
+
+        <!-- Tabla de Médicos -->
+        <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-3 bg-slate-50 border-b border-slate-200 font-bold text-xs text-slate-800">
+            Directorio del Personal Médico (<span id="doctorsCount">0</span>)
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2.5">Médico</th>
+                  <th class="p-2.5">Especialidad</th>
+                  <th class="p-2.5">Horario</th>
+                  <th class="p-2.5">Consultorio</th>
+                  <th class="p-2.5">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="doctorsTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- D. VISTA 3: MÓDULO ESTADÍSTICAS Y PLANIFICACIÓN (Jefe & Admin) -->
+    <div id="view-stats" class="hidden space-y-4">
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-[11px] font-bold text-slate-400 uppercase">Total Citas</div>
+          <div id="statTotal" class="text-2xl font-black text-slate-800 mt-1">0</div>
+          <div class="text-[10px] text-teal-600 font-medium mt-1">Registros consolidados</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-[11px] font-bold text-emerald-600 uppercase">Atendidas / Completadas</div>
+          <div id="statAtendidas" class="text-2xl font-black text-emerald-700 mt-1">0</div>
+          <div class="text-[10px] text-emerald-600 font-medium mt-1">Consultas finalizadas</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-[11px] font-bold text-rose-600 uppercase">Canceladas</div>
+          <div id="statCanceladas" class="text-2xl font-black text-rose-700 mt-1">0</div>
+          <div class="text-[10px] text-rose-500 font-medium mt-1">Citas anuladas</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-[11px] font-bold text-indigo-600 uppercase">Tasa de Ausentismo</div>
+          <div id="statAusentismo" class="text-2xl font-black text-indigo-700 mt-1">0%</div>
+          <div class="text-[10px] text-indigo-500 font-medium mt-1">Cancelaciones sobre total</div>
+        </div>
+      </div>
+
+      <!-- Métricas por Médico y Especialidad -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide">Carga de Pacientes por Médico</h3>
+          <div id="statsDoctorsList" class="space-y-2 text-xs"></div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide">Demanda por Especialidad</h3>
+          <div id="statsSpecialtyList" class="space-y-2 text-xs"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- E. VISTA 4: MÓDULO GESTIÓN DE USUARIOS & CONFIGURACIÓN (Admin) -->
+    <div id="view-usuarios" class="hidden space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        
+        <!-- Formulario CRUD Usuario -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+            <i data-lucide="user-cog" class="w-4 h-4 text-purple-600"></i> Registrar / Editar Usuario
+          </h3>
+          <form id="userCrudForm" class="space-y-2.5 text-xs">
+            <input type="hidden" id="crudUserId" />
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Nombre Completo *</label>
+              <input type="text" id="crudUserNombre" required placeholder="Lic. María Gómez" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Correo Electrónico (Login) *</label>
+              <input type="email" id="crudUserEmail" required placeholder="usuario@salud.com" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Rol en el Sistema *</label>
+              <select id="crudUserRol" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white">
+                <option value="ANALISTA">ANALISTA (Citas & Médicos)</option>
+                <option value="JEFE">JEFE (Estadísticas & Lectura)</option>
+                <option value="DESARROLLADOR_ADMIN">DESARROLLADOR_ADMIN (Control Total)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Contraseña</label>
+              <input type="password" id="crudUserPassword" placeholder="Dejar en blanco para mantener actual" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Estado</label>
+              <select id="crudUserEstado" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white">
+                <option value="ACTIVO">ACTIVO</option>
+                <option value="INACTIVO">INACTIVO</option>
+              </select>
+            </div>
+            <button type="submit" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition">Guardar Usuario</button>
+          </form>
+        </div>
+
+        <!-- Tabla de Usuarios -->
+        <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-3 bg-slate-50 border-b border-slate-200 font-bold text-xs text-slate-800">
+            Usuarios del Sistema con Acceso RBAC (<span id="usersCount">0</span>)
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2.5">Nombre</th>
+                  <th class="p-2.5">Email</th>
+                  <th class="p-2.5">Rol</th>
+                  <th class="p-2.5">Estado</th>
+                  <th class="p-2.5 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Configuración de Apps Script & Google Chat Webhook -->
+      <div class="bg-slate-900 text-white rounded-xl p-4 space-y-3">
+        <h3 class="text-xs font-bold text-teal-400 uppercase tracking-wide flex items-center gap-1.5">
+          <i data-lucide="settings" class="w-4 h-4"></i> Configuración de Conexión Serverless (Apps Script & Webhook)
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block text-slate-300 mb-1 font-semibold">URL de Google Apps Script Web App (API REST):</label>
+            <input type="text" id="cfgGasUrl" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 text-white rounded-lg font-mono text-[11px]" />
+          </div>
+          <div>
+            <label class="block text-slate-300 mb-1 font-semibold">URL de Webhook Google Chat (Card V2):</label>
+            <input type="text" id="cfgChatWebhook" placeholder="https://chat.googleapis.com/v1/spaces/.../messages?key=..." class="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 text-white rounded-lg font-mono text-[11px]" />
+          </div>
+        </div>
+        <div class="flex justify-end">
+          <button type="button" onclick="window.app.saveServerlessConfig()" class="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-xs transition">Guardar Configuración</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- F. VISTA 5: COLA INDEXEDDB & LOGS DE SINCRONIZACIÓN -->
+    <div id="view-sync" class="hidden space-y-4">
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+            <i data-lucide="database" class="w-4 h-4 text-amber-500"></i> Mutaciones Pendientes en IndexedDB (<span id="queueListCount">0</span>)
+          </h3>
+          <button type="button" onclick="window.app.clearSyncedQueue()" class="text-xs text-slate-500 hover:text-rose-600 underline">Limpiar registros sincronizados</button>
+        </div>
+        <div id="queueItemsContainer" class="space-y-2 text-xs"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Script Principal de la SPA -->
+  <script src="app.js"></script>
+</body>
+</html>
