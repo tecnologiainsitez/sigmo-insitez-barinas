@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Appointment, MutationItem, UserAccount, Specialty } from '../types';
+import { Appointment, AppointmentStatus, MutationItem, SyncState, UserAccount, Doctor, Patient, Specialty } from '../types';
 import { dbService } from '../services/indexedDB';
 import { DEFAULT_GAS_URL } from '../config/constants';
 import { gasSyncClient } from '../services/gasSyncClient';
@@ -160,6 +160,7 @@ export const useOfflineSync = (): OfflineSyncHook => {
     const initApp = async () => {
       await dbService.initDB();
 
+      // Initial auto-pull from Google Sheets if online
       if (navigator.onLine && !simulatedOffline) {
         try {
           const gasUrl = localStorage.getItem('cfg_gas_url') || DEFAULT_GAS_URL;
@@ -181,33 +182,45 @@ export const useOfflineSync = (): OfflineSyncHook => {
     };
   }, [isOnline, logMessage, refreshLocalData, forceSync, simulatedOffline]);
 
-  // Auto-sync when coming back online
+  // Auto-sync when transitioning to online mode
   useEffect(() => {
-    if (isOnline && pendingQueue.length > 0 && !isSyncing) {
+    if (isOnline && pendingQueue.length > 0) {
+      logMessage('⚡ Reconexión activada: Procesando cola de mutaciones acumuladas...');
       forceSync();
     }
-  }, [isOnline, pendingQueue.length, isSyncing, forceSync]);
-
-  const toggleSimulatedOffline = () => {
-    const next = !simulatedOffline;
-    setSimulatedOfflineState(next);
-    localStorage.setItem('hc_simulated_offline', String(next));
-    if (next) {
-      logMessage('🔌 MODO OFFLINE SIMULADO ACTIVADO. Operando en IndexedDB local.');
-    } else {
-      logMessage('⚡ Modo normal restaurado. Reconectando...');
-    }
-  };
+  }, [isOnline, pendingQueue.length, forceSync, logMessage]);
 
   const setSimulatedOffline = (offline: boolean) => {
     setSimulatedOfflineState(offline);
     localStorage.setItem('hc_simulated_offline', String(offline));
+    if (offline) {
+      logMessage('📴 Modo Offline Forzado Activado: Operando 100% sobre IndexedDB local.');
+    } else {
+      logMessage('🌐 Modo Online Restaurado: Conectando con servidor y Google Sheets...');
+    }
+  };
+
+  const toggleSimulatedOffline = () => {
+    setSimulatedOffline(!simulatedOffline);
   };
 
   const clearLocalDatabase = async () => {
-    await dbService.clearAll();
+    await dbService.clearAllLocalData();
     await refreshLocalData();
-    logMessage('🗑️ Base de datos local (IndexedDB) restablecida.');
+    logMessage('🗑️ Base de datos local IndexedDB reiniciada.');
+  };
+
+  const getLoggedInUserName = (): string => {
+    try {
+      const session =
+        localStorage.getItem('hc_active_session') ||
+        sessionStorage.getItem('hc_active_session');
+      if (session) {
+        const user = JSON.parse(session);
+        return user.nombre || user.nombreCompleto || user.fullName || user.email || user.username || 'Analista';
+      }
+    } catch (e) {}
+    return 'Analista';
   };
 
   const createAppointment = async (data: {
@@ -221,188 +234,213 @@ export const useOfflineSync = (): OfflineSyncHook => {
     date: string;
     time: string;
     notes?: string;
+    creadoPor?: string;
   }) => {
+    const creator = data.creadoPor || getLoggedInUserName();
     const newAppt: Appointment = {
-      id: 'apt-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      id: 'CITA-' + Date.now(),
+      paciente: data.patientName,
       patientName: data.patientName,
+      cedula: data.patientDni,
       patientDni: data.patientDni,
+      email: data.patientEmail,
       patientEmail: data.patientEmail,
+      telefono: data.patientPhone,
       patientPhone: data.patientPhone,
-      specialty: typeof data.specialty === 'string' ? data.specialty : (data.specialty?.nombre || data.specialty?.name || 'Medicina General'),
+      especialidad: data.specialty,
+      specialty: data.specialty,
+      medicoId: data.doctorId,
       doctorId: data.doctorId,
+      medicoNombre: data.doctorName,
       doctorName: data.doctorName,
+      fecha: data.date,
       date: data.date,
+      hora: data.time,
       time: data.time,
-      status: 'PENDING',
-      syncState: isOnline ? 'SYNCED' : 'PENDING_SYNC',
+      motivoConsulta: data.notes || '',
       notes: data.notes || '',
-      updatedAt: new Date().toISOString(),
-      version: 1,
-      lastModifiedBy: deviceId,
+      estado: 'CONFIRMED',
+      status: 'CONFIRMED',
+      creadoPor: creator,
+      syncState: 'PENDING',
+      createdAtUtc: new Date().toISOString(),
+      fechaRegistroUtc: new Date().toISOString(),
     };
 
     await dbService.saveAppointment(newAppt);
-
-    const mutation: MutationItem = {
-      id: 'mut-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-      type: 'CREATE',
-      appointmentId: newAppt.id,
-      timestamp: new Date().toISOString(),
-      status: 'PENDING',
-      appointmentData: newAppt,
-      deviceId: deviceId,
-      retries: 0,
-    };
-
-    await dbService.addMutation(mutation);
-    logMessage(`📝 Cita creada localmente para ${data.patientName} (${newAppt.id})`);
+    await dbService.addAppointmentMutation('CREATE', newAppt);
     await refreshLocalData();
-
-    if (isOnline) {
-      forceSync();
-    }
   };
 
   const updateAppointmentStatus = async (id: string, status: Appointment['status']) => {
-    const existing = await dbService.getAppointmentById(id);
-    if (!existing) return;
-
-    const updated: Appointment = {
-      ...existing,
-      status: status,
-      syncState: isOnline ? 'SYNCED' : 'PENDING_SYNC',
-      updatedAt: new Date().toISOString(),
-      version: (existing.version || 1) + 1,
-      lastModifiedBy: deviceId,
-    };
-
+    const appt = await dbService.getAppointmentById(id);
+    if (!appt) return;
+    const updated = { ...appt, status, estado: status, syncState: 'PENDING' as SyncState };
     await dbService.saveAppointment(updated);
-
-    const mutation: MutationItem = {
-      id: 'mut-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-      type: 'UPDATE_STATUS',
-      appointmentId: id,
-      timestamp: new Date().toISOString(),
-      status: 'PENDING',
-      appointmentData: updated,
-      deviceId: deviceId,
-      retries: 0,
-    };
-
-    await dbService.addMutation(mutation);
-    logMessage(`🔄 Estado de cita ${id} cambiado a "${status}"`);
+    await dbService.addStatusMutation(id, status);
     await refreshLocalData();
-
-    if (isOnline) {
-      forceSync();
-    }
   };
 
   const saveClinicalNotes = async (
     id: string,
-    notes: { idx?: string; treatment?: string; diseaseNotes?: string }
+    notes: {
+      idx?: string;
+      treatment?: string;
+      diseaseNotes?: string;
+      observacionesMedicas?: string;
+      newStatus?: AppointmentStatus;
+    }
   ) => {
-    const existing = await dbService.getAppointmentById(id);
-    if (!existing) return;
+    const appt = await dbService.getAppointmentById(id);
+    if (!appt) return;
+    const finalIdx = notes.idx !== undefined ? notes.idx : (appt.idx || appt.dx || appt.diagnostico || '');
+    const finalTreatment = notes.treatment !== undefined ? notes.treatment : (appt.treatment || appt.tratamiento || '');
+    const finalNotes = notes.diseaseNotes !== undefined
+      ? notes.diseaseNotes
+      : (notes.observacionesMedicas !== undefined ? notes.observacionesMedicas : (appt.diseaseNotes || appt.notasEnfermedad || appt.observacionesMedicas || ''));
+    const finalStatus = notes.newStatus || appt.status || 'COMPLETED';
 
     const updated: Appointment = {
-      ...existing,
-      notes: notes.treatment ? `Tratamiento: ${notes.treatment}` : existing.notes,
-      clinicalNotes: notes,
-      status: 'ATTENDED',
-      syncState: isOnline ? 'SYNCED' : 'PENDING_SYNC',
-      updatedAt: new Date().toISOString(),
-      version: (existing.version || 1) + 1,
-      lastModifiedBy: deviceId,
+      ...appt,
+      idx: finalIdx,
+      dx: finalIdx,
+      diagnostico: finalIdx,
+      treatment: finalTreatment,
+      tratamiento: finalTreatment,
+      diseaseNotes: finalNotes,
+      notasEnfermedad: finalNotes,
+      observacionesMedicas: finalNotes,
+      status: finalStatus,
+      estado: finalStatus,
+      syncState: 'PENDING' as SyncState,
+    };
+    await dbService.saveAppointment(updated);
+    await dbService.addClinicalNotesMutation(id, {
+      idx: finalIdx,
+      treatment: finalTreatment,
+      diseaseNotes: finalNotes,
+      newStatus: finalStatus,
+    });
+    await refreshLocalData();
+  };
+
+  const rescheduleAppointment = async (
+    id: string,
+    dataOrDate:
+      | {
+          newDate: string;
+          newTime: string;
+          newDoctorId?: string;
+          newDoctorName?: string;
+          newSpecialty?: Specialty | string;
+          reason?: string;
+        }
+      | string,
+    maybeTime?: string
+  ) => {
+    const appt = await dbService.getAppointmentById(id);
+    if (!appt) return;
+
+    let targetDate = appt.date || appt.fecha || '';
+    let targetTime = appt.time || appt.hora || '08:00';
+    let targetDocId = appt.doctorId || appt.medicoId || 'DOC-101';
+    let targetDocName = appt.doctorName || appt.medicoNombre || 'Dr. Asignado';
+    let targetSpecialty = appt.specialty || appt.especialidad || 'Medicina General';
+    let reason = '';
+
+    if (typeof dataOrDate === 'object' && dataOrDate !== null) {
+      if (dataOrDate.newDate) targetDate = dataOrDate.newDate;
+      if (dataOrDate.newTime) targetTime = dataOrDate.newTime;
+      if (dataOrDate.newDoctorId) targetDocId = dataOrDate.newDoctorId;
+      if (dataOrDate.newDoctorName) targetDocName = dataOrDate.newDoctorName;
+      if (dataOrDate.newSpecialty) targetSpecialty = dataOrDate.newSpecialty;
+      if (dataOrDate.reason) reason = dataOrDate.reason;
+    } else {
+      if (dataOrDate) targetDate = String(dataOrDate);
+      if (maybeTime) targetTime = String(maybeTime);
+    }
+
+    // Safety checks against stringified objects
+    if (targetDate.startsWith('{') || targetDate.includes('newDate=')) {
+      const match = targetDate.match(/newDate[=:]\s*([^,}\s]+)/);
+      if (match) targetDate = match[1];
+    }
+    if (targetTime.startsWith('{') || targetTime.includes('newTime=')) {
+      const match = targetTime.match(/newTime[=:]\s*([^,}\s]+)/);
+      if (match) targetTime = match[1];
+    }
+
+    const updatedNote = reason
+      ? appt.notes
+        ? `${appt.notes} (Reprogramado: ${reason})`
+        : `Reprogramado: ${reason}`
+      : appt.notes || '';
+
+    const updated: Appointment = {
+      ...appt,
+      date: targetDate,
+      fecha: targetDate,
+      time: targetTime,
+      hora: targetTime,
+      doctorId: targetDocId,
+      medicoId: targetDocId,
+      doctorName: targetDocName,
+      medicoNombre: targetDocName,
+      specialty: targetSpecialty,
+      especialidad: targetSpecialty,
+      notes: updatedNote,
+      motivoConsulta: updatedNote,
+      status: 'CONFIRMED',
+      estado: 'CONFIRMED',
+      syncState: 'PENDING' as SyncState,
+      updatedAtUtc: new Date().toISOString(),
     };
 
     await dbService.saveAppointment(updated);
-
-    const mutation: MutationItem = {
-      id: 'mut-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-      type: 'SAVE_NOTES',
-      appointmentId: id,
-      timestamp: new Date().toISOString(),
-      status: 'PENDING',
-      appointmentData: updated,
-      deviceId: deviceId,
-      retries: 0,
-    };
-
-    await dbService.addMutation(mutation);
-    logMessage(`🩺 Historia clínica y notas guardadas para cita ${id}`);
+    await dbService.addRescheduleMutation(id, {
+      newDate: targetDate,
+      newTime: targetTime,
+      newDoctorId: targetDocId,
+      newDoctorName: targetDocName,
+      newSpecialty: targetSpecialty,
+      reason,
+    });
     await refreshLocalData();
-
-    if (isOnline) {
-      forceSync();
-    }
   };
 
-  const rescheduleAppointment = async (id: string, newDate: string, newTime: string) => {
-    const existing = await dbService.getAppointmentById(id);
-    if (!existing) return;
-
-    const updated: Appointment = {
-      ...existing,
-      date: newDate,
-      time: newTime,
-      status: 'RESCHEDULED',
-      syncState: isOnline ? 'SYNCED' : 'PENDING_SYNC',
-      updatedAt: new Date().toISOString(),
-      version: (existing.version || 1) + 1,
-      lastModifiedBy: deviceId,
-    };
-
-    await dbService.saveAppointment(updated);
-
-    const mutation: MutationItem = {
-      id: 'mut-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-      type: 'RESCHEDULE',
-      appointmentId: id,
-      timestamp: new Date().toISOString(),
-      status: 'PENDING',
-      appointmentData: updated,
-      deviceId: deviceId,
-      retries: 0,
-    };
-
-    await dbService.addMutation(mutation);
-    logMessage(`📅 Cita ${id} reprogramada para ${newDate} a las ${newTime}`);
-    await refreshLocalData();
-
-    if (isOnline) {
-      forceSync();
+  const resolveConflict = async (
+    targetOrAppt: string | Appointment,
+    actionOrDiscardId: 'ACCEPT_OVERRIDE' | 'RESCHEDULE' | 'CANCEL' | string,
+    newDate?: string,
+    newTime?: string
+  ) => {
+    if (typeof targetOrAppt === 'object' && targetOrAppt !== null) {
+      const chosenAppointment = targetOrAppt;
+      const discardId = actionOrDiscardId;
+      await dbService.saveAppointment({ ...chosenAppointment, status: 'CONFIRMED', estado: 'CONFIRMED', syncState: 'PENDING' });
+      await dbService.saveAppointment({ ...chosenAppointment, id: discardId, status: 'CANCELLED', estado: 'CANCELLED', syncState: 'PENDING' });
+      await dbService.addStatusMutation(chosenAppointment.id, 'CONFIRMED');
+      await dbService.addStatusMutation(discardId, 'CANCELLED');
+      await refreshLocalData();
+      return;
     }
-  };
 
-  const resolveConflict = async (chosenAppointment: Appointment, discardId: string) => {
-    const resolved: Appointment = {
-      ...chosenAppointment,
-      syncState: 'SYNCED',
-      updatedAt: new Date().toISOString(),
-      version: (chosenAppointment.version || 1) + 1,
-    };
+    const appointmentId = typeof targetOrAppt === 'string' ? targetOrAppt : (targetOrAppt as Appointment).id;
+    const action = actionOrDiscardId as 'ACCEPT_OVERRIDE' | 'RESCHEDULE' | 'CANCEL';
+    const appt = await dbService.getAppointmentById(appointmentId);
+    if (!appt) return;
 
-    await dbService.saveAppointment(resolved);
-
-    const mutation: MutationItem = {
-      id: 'mut-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-      type: 'RESOLVE_CONFLICT',
-      appointmentId: chosenAppointment.id,
-      timestamp: new Date().toISOString(),
-      status: 'PENDING',
-      appointmentData: resolved,
-      deviceId: deviceId,
-      retries: 0,
-    };
-
-    await dbService.addMutation(mutation);
-    logMessage(`⚖️ Conflicto resuelto para cita ${chosenAppointment.id}`);
-    await refreshLocalData();
-
-    if (isOnline) {
-      forceSync();
+    if (action === 'CANCEL') {
+      await updateAppointmentStatus(appointmentId, 'CANCELLED');
+    } else if (action === 'ACCEPT_OVERRIDE') {
+      await updateAppointmentStatus(appointmentId, 'CONFIRMED');
+    } else if (action === 'RESCHEDULE' && newDate) {
+      await rescheduleAppointment(appointmentId, {
+        newDate: newDate,
+        newTime: newTime || appt.time || '12:00',
+      });
     }
+    await refreshLocalData();
   };
 
   return {
