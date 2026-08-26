@@ -22,7 +22,10 @@ export type Specialty =
   | 'Dermatología'
   | 'Oftalmología'
   | 'Odontología'
-  | 'Neurología';
+  | 'Neurología'
+  | 'Psicología'
+  | 'Nutrición y Dietética'
+  | (string & {});
 
 export interface SpecialtyItem {
   id: string;
