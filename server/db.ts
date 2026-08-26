@@ -5,7 +5,7 @@ import { INITIAL_USERS } from '../src/data/mockUsers';
 // Central Server State (In-Memory Data Store with Google Sheets Sync)
 class CentralDatabase {
   private appointments: Map<string, Appointment> = new Map();
-  private doctors: Doctor[] = [...INITIAL_DOCTORS];
+  private doctors: Doctor[] = [];
   private patients: Map<string, Patient> = new Map();
   private specialties: Set<string> = new Set([
     'Medicina General',
@@ -55,6 +55,8 @@ class CentralDatabase {
   }
 
   public saveDoctor(doctor: Doctor) {
+    const mppsVal = doctor.mpps || doctor.mppsNumber || (doctor as any).MPPS || '';
+    const impresVal = doctor.impres || doctor.impresNumber || (doctor as any).IMPRES || '';
     const docObj: Doctor = {
       ...doctor,
       id: doctor.id || `DOC-${Date.now()}`,
@@ -69,6 +71,10 @@ class CentralDatabase {
       telefono: doctor.telefono || doctor.phone || '',
       phone: doctor.telefono || doctor.phone || '',
       email: doctor.email || '',
+      mpps: mppsVal,
+      impres: impresVal,
+      mppsNumber: mppsVal,
+      impresNumber: impresVal,
       estado: doctor.estado || (doctor.active === false ? 'INACTIVO' : 'ACTIVO'),
       active: doctor.estado === 'ACTIVO' || doctor.active !== false,
     };
