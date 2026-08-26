@@ -104,12 +104,12 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
   const [isSearching, setIsSearching] = useState(false);
 
   // Dynamic Doctors & Specialties loaded from IndexedDB
-  const [allDoctors, setAllDoctors] = useState<Doctor[]>(INITIAL_DOCTORS);
+  const [allDoctors, setAllDoctors] = useState<Doctor[]>([]);
   const [allSpecialties, setAllSpecialties] = useState<string[]>(SPECIALTIES_LIST);
 
   // Appointment details
   const [specialty, setSpecialty] = useState<string>('Medicina General');
-  const [doctorId, setDoctorId] = useState<string>('doc-1');
+  const [doctorId, setDoctorId] = useState<string>('');
   const [date, setDate] = useState<string>(today);
   const [time, setTime] = useState<string>('08:00');
   const [notes, setNotes] = useState<string>('');
@@ -134,9 +134,28 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
           console.warn('Could not pull doctors from server:', netErr);
         }
       }
+
       if (docs && docs.length > 0) {
         setAllDoctors(docs);
+        // Select first active doctor if none selected
+        const activeDocs = docs.filter((d) => d.active !== false && String(d.estado || (d as any).Estado || '').toUpperCase() !== 'INACTIVO');
+        if (activeDocs.length > 0) {
+          const matchingSpec = activeDocs.find((d) => {
+            const s = (d.especialidad || d.specialty || (d as any).Especialidad || '').toLowerCase().trim();
+            return s === specialty.toLowerCase().trim();
+          });
+          const chosen = matchingSpec || activeDocs[0];
+          setDoctorId((prev) => (prev && activeDocs.some((d) => d.id === prev) ? prev : chosen.id));
+          const docSpec = chosen.especialidad || chosen.specialty || (chosen as any).Especialidad;
+          if (docSpec && !matchingSpec) {
+            setSpecialty(docSpec);
+          }
+        }
+      } else {
+        setAllDoctors([]);
+        setDoctorId('');
       }
+
       const specs = await dbService.getAllSpecialties();
       if (specs && specs.length > 0) {
         setAllSpecialties(specs);
@@ -153,18 +172,25 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
     return () => window.removeEventListener('insitez_db_mutation', handleDBChange);
   }, []);
 
-  // Filter doctors that strictly belong to the selected specialty
+  // Filter doctors that belong to the selected specialty
   const specialtyDoctors = useMemo(() => {
     const normSpec = specialty.trim().toLowerCase();
-    return allDoctors.filter((d) => {
-      const docSpec = (d.especialidad || d.specialty || '').trim().toLowerCase();
-      return docSpec === normSpec && d.active !== false && d.estado !== 'INACTIVO';
+    const activeDocs = allDoctors.filter((d) => {
+      const isAct = d.active !== false && String(d.estado || (d as any).Estado || '').toUpperCase() !== 'INACTIVO';
+      return isAct;
     });
+
+    const matching = activeDocs.filter((d) => {
+      const docSpec = (d.especialidad || d.specialty || (d as any).Especialidad || '').trim().toLowerCase();
+      return docSpec === normSpec || docSpec.includes(normSpec) || normSpec.includes(docSpec);
+    });
+
+    return matching;
   }, [allDoctors, specialty]);
 
   // Selected Doctor object
   const selectedDoc = useMemo(() => {
-    return allDoctors.find((d) => d.id === doctorId) || specialtyDoctors[0] || allDoctors[0] || null;
+    return allDoctors.find((d) => d.id === doctorId) || specialtyDoctors[0] || null;
   }, [allDoctors, specialtyDoctors, doctorId]);
 
   // Handle specialty selection -> Auto-link to first matching specialist
@@ -172,8 +198,9 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
     setSpecialty(newSpec);
     const normSpec = newSpec.trim().toLowerCase();
     const matching = allDoctors.filter((d) => {
-      const docSpec = (d.especialidad || d.specialty || '').trim().toLowerCase();
-      return docSpec === normSpec && d.active !== false && d.estado !== 'INACTIVO';
+      const docSpec = (d.especialidad || d.specialty || (d as any).Especialidad || '').trim().toLowerCase();
+      const isActive = d.active !== false && String(d.estado || (d as any).Estado || '').toUpperCase() !== 'INACTIVO';
+      return (docSpec === normSpec || docSpec.includes(normSpec) || normSpec.includes(docSpec)) && isActive;
     });
     if (matching.length > 0) {
       setDoctorId(matching[0].id);
@@ -187,7 +214,7 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
     setDoctorId(newDocId);
     const doc = allDoctors.find((d) => d.id === newDocId);
     if (doc) {
-      const docSpec = doc.especialidad || doc.specialty;
+      const docSpec = doc.especialidad || doc.specialty || (doc as any).Especialidad;
       if (docSpec && docSpec.trim().toLowerCase() !== specialty.trim().toLowerCase()) {
         setSpecialty(docSpec);
       }
@@ -195,7 +222,7 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
   };
 
   // Doctor Schedule String (e.g. "08:00 - 14:00")
-  const doctorSchedule = selectedDoc?.schedule || selectedDoc?.horarioAtencion || '08:00 - 14:00';
+  const doctorSchedule = selectedDoc?.schedule || selectedDoc?.horarioAtencion || (selectedDoc as any)?.HorarioAtencion || '08:00 - 14:00';
 
   // Allowed 30-min time slots strictly computed from the doctor's working schedule
   const doctorTimeSlots = useMemo(() => {
@@ -209,6 +236,8 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
       if (!hasCurrent) {
         setDoctorId(specialtyDoctors[0].id);
       }
+    } else {
+      setDoctorId('');
     }
   }, [specialty, specialtyDoctors, doctorId]);
 
@@ -481,16 +510,6 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
               <Stethoscope className="w-4 h-4 text-teal-600" />
               2. Especialidad Médica, Especialista y Horario Restringido
             </div>
-
-            {/* Doctor Schedule Badge */}
-            {selectedDoc && (
-              <div className="flex items-center gap-1.5 text-[11px] font-mono font-semibold bg-teal-100/90 text-teal-900 border border-teal-300 px-2.5 py-0.5 rounded-full shadow-2xs">
-                <Clock className="w-3.5 h-3.5 text-teal-700" />
-                <span>
-                  Horario de {selectedDoc.name || selectedDoc.nombre}: <b>{doctorSchedule}</b> ({doctorTimeSlots.length} turnos)
-                </span>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
@@ -527,7 +546,7 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
                 )}
               </div>
               <select
-                value={doctorId}
+                value={specialtyDoctors.some((d) => d.id === doctorId) ? doctorId : (specialtyDoctors[0]?.id || '')}
                 onChange={(e) => handleDoctorChange(e.target.value)}
                 required
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-slate-800 bg-white font-medium shadow-2xs"
@@ -535,7 +554,7 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
                 {specialtyDoctors.length > 0 ? (
                   specialtyDoctors.map((doc) => (
                     <option key={doc.id} value={doc.id}>
-                      {doc.name || doc.nombre} ({doc.consultorio || doc.room || 'Consultorio'} • {doc.schedule || doc.horarioAtencion || '08:00 - 14:00'})
+                      {doc.name || doc.nombre || 'Médico'} ({doc.consultorio || doc.room || 'Consultorio'} • {doc.schedule || doc.horarioAtencion || '08:00 - 14:00'})
                     </option>
                   ))
                 ) : (
