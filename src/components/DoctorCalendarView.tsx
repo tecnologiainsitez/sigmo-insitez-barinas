@@ -124,7 +124,7 @@ export const DoctorCalendarView: React.FC<DoctorCalendarViewProps> = ({
   const effectiveDoctorId = isDoctorRole ? currentDoctorId : supervisorDoctorFilter;
 
   // Dynamic doctors state
-  const [allDoctors, setAllDoctors] = useState<Doctor[]>(INITIAL_DOCTORS);
+  const [allDoctors, setAllDoctors] = useState<Doctor[]>([]);
 
   // Load doctors from IndexedDB
   const loadDoctors = async () => {
@@ -149,7 +149,7 @@ export const DoctorCalendarView: React.FC<DoctorCalendarViewProps> = ({
   const allDynamicDoctors = useMemo(() => {
     const docMap = new Map<string, Doctor>();
 
-    // 1. Initial & IndexedDB doctors
+    // 1. IndexedDB doctors
     allDoctors.forEach((d) => {
       if (d) {
         const key = d.id || d.nombre || d.name || '';
@@ -190,7 +190,7 @@ export const DoctorCalendarView: React.FC<DoctorCalendarViewProps> = ({
     return (
       allDynamicDoctors.find((d) => d.id === currentDoctorId || d.nombre === currentDoctorId || d.name === currentDoctorId) ||
       allDynamicDoctors[0] ||
-      INITIAL_DOCTORS[0]
+      null
     );
   }, [allDynamicDoctors, currentDoctorId]);
 
