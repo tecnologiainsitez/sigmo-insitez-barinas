@@ -1,135 +1,267 @@
-import { Doctor, Specialty } from '../types';
+export type UserRole = 'ANALISTA' | 'JEFE' | 'MEDICO' | 'DESARROLLADOR_ADMIN';
 
-export const INITIAL_DOCTORS: Doctor[] = [
-  {
-    id: 'DOC-101',
-    nombre: 'Dr. Carlos Mendoza',
-    name: 'Dr. Carlos Mendoza',
-    especialidad: 'Medicina General',
-    specialty: 'Medicina General',
-    horarioAtencion: '08:00 - 14:00',
-    schedule: '08:00 - 14:00',
-    consultorio: 'Consultorio 101',
-    room: 'Consultorio 101',
-    telefono: '+58 414 123 4567',
-    phone: '+58 414 123 4567',
-    email: 'carlos.mendoza@insitez.unellez.edu.ve',
-    mpps: '84920',
-    impres: '12048',
-    mppsNumber: '84920',
-    impresNumber: '12048',
-    estado: 'ACTIVO',
-    active: true,
-  },
-  {
-    id: 'DOC-102',
-    nombre: 'Dra. Elena Ramos',
-    name: 'Dra. Elena Ramos',
-    especialidad: 'Pediatría',
-    specialty: 'Pediatría',
-    horarioAtencion: '08:00 - 14:00',
-    schedule: '08:00 - 14:00',
-    consultorio: 'Consultorio 102',
-    room: 'Consultorio 102',
-    telefono: '+58 412 234 5678',
-    phone: '+58 412 234 5678',
-    email: 'elena.ramos@insitez.unellez.edu.ve',
-    mpps: '79214',
-    impres: '11452',
-    mppsNumber: '79214',
-    impresNumber: '11452',
-    estado: 'ACTIVO',
-    active: true,
-  },
-  {
-    id: 'DOC-103',
-    nombre: 'Dr. Alejandro Torres',
-    name: 'Dr. Alejandro Torres',
-    especialidad: 'Cardiología',
-    specialty: 'Cardiología',
-    horarioAtencion: '08:00 - 13:00',
-    schedule: '08:00 - 13:00',
-    consultorio: 'Consultorio 103',
-    room: 'Consultorio 103',
-    telefono: '+58 416 345 6789',
-    phone: '+58 416 345 6789',
-    email: 'alejandro.torres@insitez.unellez.edu.ve',
-    mpps: '65431',
-    impres: '09812',
-    mppsNumber: '65431',
-    impresNumber: '09812',
-    estado: 'ACTIVO',
-    active: true,
-  },
-  {
-    id: 'DOC-104',
-    nombre: 'Dra. Patricia Silva',
-    name: 'Dra. Patricia Silva',
-    especialidad: 'Ginecología',
-    specialty: 'Ginecología',
-    horarioAtencion: '08:00 - 14:00',
-    schedule: '08:00 - 14:00',
-    consultorio: 'Consultorio 104',
-    room: 'Consultorio 104',
-    telefono: '+58 424 456 7890',
-    phone: '+58 424 456 7890',
-    email: 'patricia.silva@insitez.unellez.edu.ve',
-    mpps: '81290',
-    impres: '13590',
-    mppsNumber: '81290',
-    impresNumber: '13590',
-    estado: 'ACTIVO',
-    active: true,
-  },
-  {
-    id: 'DOC-105',
-    nombre: 'Dr. Roberto Morales',
-    name: 'Dr. Roberto Morales',
-    especialidad: 'Traumatología',
-    specialty: 'Traumatología',
-    horarioAtencion: '08:00 - 13:00',
-    schedule: '08:00 - 13:00',
-    consultorio: 'Consultorio 105',
-    room: 'Consultorio 105',
-    telefono: '+58 412 567 8901',
-    phone: '+58 412 567 8901',
-    email: 'roberto.morales@insitez.unellez.edu.ve',
-    mpps: '54890',
-    impres: '08741',
-    mppsNumber: '54890',
-    impresNumber: '08741',
-    estado: 'ACTIVO',
-    active: true,
-  },
-  {
-    id: 'DOC-106',
-    nombre: 'Dra. Mariana Lucena',
-    name: 'Dra. Mariana Lucena',
-    especialidad: 'Odontología',
-    specialty: 'Odontología',
-    horarioAtencion: '08:00 - 14:00',
-    schedule: '08:00 - 14:00',
-    consultorio: 'Consultorio 106',
-    room: 'Consultorio 106',
-    telefono: '+58 414 678 9012',
-    phone: '+58 414 678 9012',
-    email: 'mariana.lucena@insitez.unellez.edu.ve',
-    mpps: '93120',
-    impres: '15890',
-    mppsNumber: '93120',
-    impresNumber: '15890',
-    estado: 'ACTIVO',
-    active: true,
-  },
-];
+export type UserStatus = 'ACTIVO' | 'INACTIVO';
 
-export const SPECIALTIES_LIST: Specialty[] = [
-  'Medicina General',
-  'Pediatría',
-  'Cardiología',
-  'Ginecología',
-  'Traumatología',
-  'Oftalmología',
-  'Odontología',
-  'Dermatología',
-];
+export interface UserAccount {
+  id: string;
+  nombre: string;
+  email: string;
+  passwordHash: string;
+  rol: UserRole;
+  estado: UserStatus;
+  ultimoAcceso?: string;
+  medicoId?: string; // If role is MEDICO, linked doctor profile ID
+}
+
+export type Specialty =
+  | 'Medicina General'
+  | 'Pediatría'
+  | 'Cardiología'
+  | 'Ginecología'
+  | 'Traumatología'
+  | 'Dermatología'
+  | 'Oftalmología'
+  | 'Odontología'
+  | 'Neurología'
+  | 'Psicología'
+  | 'Nutrición y Dietética'
+  | (string & {});
+
+export interface SpecialtyItem {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+}
+
+export interface Doctor {
+  id: string;
+  nombre: string;
+  name?: string;
+  especialidad: Specialty | string;
+  specialty?: Specialty | string;
+  horarioAtencion: string;
+  schedule?: string;
+  consultorio: string;
+  room?: string;
+  telefono: string;
+  phone?: string;
+  email: string;
+  mpps?: string; // Número de Registro MPPS
+  impres?: string; // Número IMPRES / Colegio de Médicos
+  mppsNumber?: string;
+  impresNumber?: string;
+  estado: 'ACTIVO' | 'INACTIVO';
+  active?: boolean;
+}
+
+export type AppointmentStatus =
+  | 'CONFIRMED'
+  | 'IN_WAITING_ROOM'
+  | 'IN_CONSULTATION'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'NO_SHOW'
+  | 'CONFLICT_PENDING';
+
+export type SyncState = 'SYNCED' | 'PENDING_SYNC' | 'PENDING' | 'CONFLICT' | 'CONFLICT_ERROR' | 'FAILED';
+
+export type PatientCategory = 'Titular' | 'Beneficiario' | 'Estudiante' | 'Comunidad';
+
+export type PatientCondition =
+  | 'Administrativo Activo'
+  | 'Administrativo Contratado'
+  | 'Administrativo Pensionado'
+  | 'Administrativo Jubilado'
+  | 'Docente Activo'
+  | 'Docente Contratado'
+  | 'Docente Pensionado'
+  | 'Docente Jubilado'
+  | 'Obrero Activo'
+  | 'Obrero Contratado'
+  | 'Obrero Pensionado'
+  | 'Obrero Jubilado';
+
+export type Kinship = 'Hijo/a' | 'Cónyuge/Pareja' | 'Padre/Madre' | 'Hermano/a' | 'Tutor Legal' | 'Abuelo/a' | 'Tío/a' | 'Otro';
+
+export interface TitularData {
+  cedula: string;
+  nombreCompleto: string;
+  condicion: PatientCondition | string;
+  parentesco: Kinship | string;
+}
+
+export interface GuardianData {
+  cedula: string;
+  nombreCompleto: string;
+  telefono: string;
+  parentesco: Kinship | string;
+}
+
+export interface Patient {
+  id?: string;
+  dni: string; // Cédula
+  cedula?: string;
+  expedienteNumber?: string; // Número de Historia Médica o Expediente
+  numeroExpediente?: string;
+  name: string; // Nombre y apellido
+  nombre?: string;
+  nombreApellido?: string;
+  nombreCompleto?: string;
+  birthDate?: string; // Fecha de nacimiento
+  fechaNacimiento?: string;
+  phone: string; // Teléfono
+  telefono?: string;
+  email: string; // Correo electrónico
+  correo?: string;
+  address?: string; // Dirección
+  direccion?: string;
+  category?: PatientCategory;
+  categoria?: PatientCategory;
+  condition?: PatientCondition | string;
+  condicion?: PatientCondition | string;
+  titularData?: TitularData;
+  datosTitular?: TitularData;
+  guardianData?: GuardianData; // Representante en caso de Comunidad menor de 18 años
+  representante?: GuardianData;
+  medicalHistory?: string;
+  historiaMedica?: string;
+  antecedentes?: string;
+  createdAtUtc?: string;
+  updatedAtUtc?: string;
+}
+
+export interface Appointment {
+  id: string;
+  paciente: string;
+  patientName: string;
+  cedula: string;
+  patientDni: string;
+  expedienteNumber?: string;
+  numeroExpediente?: string;
+  email: string;
+  patientEmail: string;
+  telefono: string;
+  patientPhone: string;
+  historiaMedica?: string;
+  patientMedicalHistory?: string;
+  medicoId: string;
+  doctorId: string;
+  medicoNombre: string;
+  doctorName: string;
+  especialidad: Specialty | string;
+  specialty: Specialty | string;
+  fecha: string;
+  date: string;
+  hora: string;
+  time: string;
+  estado: AppointmentStatus;
+  status: AppointmentStatus;
+  motivoConsulta?: string;
+  notes?: string;
+  creadoPor?: string;
+  fechaRegistroUtc: string;
+  createdAtUtc: string;
+  updatedAtUtc?: string;
+  syncState: SyncState;
+  originDevice?: string;
+  observacionesMedicas?: string;
+  idx?: string; // Impresión Diagnóstica / Diagnóstico
+  dx?: string;
+  diagnostico?: string;
+  treatment?: string; // Tratamiento / Plan Terapéutico
+  tratamiento?: string;
+  diseaseNotes?: string; // Notas respecto a la enfermedad y evolución
+  notasEnfermedad?: string;
+  conflictDetails?: any;
+  durationMinutes?: number;
+}
+
+export type MutationAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'UPDATE_STATUS'
+  | 'CANCEL'
+  | 'RESCHEDULE'
+  | 'DELETE_USER'
+  | 'SAVE_USER'
+  | 'SAVE_DOCTOR'
+  | 'DELETE_DOCTOR'
+  | 'SAVE_SPECIALTY'
+  | 'SAVE_PATIENT';
+
+export interface MutationItem {
+  id: string;
+  tabla: 'Citas' | 'Medicos' | 'Especialidades' | 'Usuarios' | 'Pacientes';
+  action: MutationAction;
+  timestampUtc: string;
+  timestamp_utc?: string;
+  payload: any;
+  status: 'PENDING' | 'SYNCED' | 'FAILED' | 'CONFLICT';
+  retryCount: number;
+  errorMessage?: string;
+  lastError?: string;
+  originDevice?: string;
+}
+
+export interface MutationPayload {
+  id?: string;
+  [key: string]: any;
+}
+
+export interface SyncResponse {
+  success: boolean;
+  syncedCount?: number;
+  processedMutations?: Array<{
+    mutationId: string;
+    status: 'SYNCED' | 'CONFLICT' | 'FAILED';
+    appointment?: Appointment;
+    error?: string;
+  }>;
+  serverAppointments?: Appointment[];
+  notificationsGenerated?: number;
+  errors?: string[];
+  conflicts?: any[];
+  gasSyncSuccess?: boolean;
+  gasError?: string;
+}
+
+export interface NotificationLog {
+  id: string;
+  appointmentId: string;
+  recipient: string;
+  recipientEmail?: string;
+  type: 'EMAIL_ICS' | 'GOOGLE_CHAT_CARD' | 'GOOGLE_CHAT_WEBHOOK';
+  subjectOrTitle: string;
+  status: 'SENT' | 'SIMULATED' | 'FAILED';
+  payload: string;
+  timestamp: string;
+  details: string;
+}
+
+export interface AppConfig {
+  appsScriptUrl: string;
+  googleChatWebhook: string;
+  googleSheetId: string;
+  offlineSimulation: boolean;
+  centroSaludNombre: string;
+}
+
+export interface SystemLog {
+  id: string;
+  timestamp: string;
+  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
+  module: string;
+  message: string;
+  details?: any;
+}
+
+export interface StatsSummary {
+  totalCitas: number;
+  atendidas: number;
+  canceladas: number;
+  enEspera: number;
+  confirmadas: number;
+  ausentismoTasa: number;
+  cargasPorMedico: { medico: string; total: number; atendidas: number }[];
+  cargasPorEspecialidad: { especialidad: string; total: number }[];
+}
