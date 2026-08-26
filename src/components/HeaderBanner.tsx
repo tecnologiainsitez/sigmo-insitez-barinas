@@ -73,7 +73,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({
 }) => {
   const [showSyncDetails, setShowSyncDetails] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
-  const [headerDoctors, setHeaderDoctors] = useState<Doctor[]>(INITIAL_DOCTORS);
+  const [headerDoctors, setHeaderDoctors] = useState<Doctor[]>([]);
 
   useEffect(() => {
     const fetchDocs = async () => {
