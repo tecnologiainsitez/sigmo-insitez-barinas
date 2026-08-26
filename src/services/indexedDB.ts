@@ -167,8 +167,8 @@ export function normalizeAppointmentEntity(raw: any): Appointment {
   time = sanitizeTimeString(time);
 
   if (!time) time = '08:00';
-  if (!doctorId) doctorId = 'DOC-101';
-  if (!doctorName) doctorName = 'Dr. Asignado';
+  if (!doctorId) doctorId = raw.medicoId || raw.ID_Medico || '';
+  if (!doctorName) doctorName = raw.medicoNombre || raw.medico || raw.Medico || '';
 
   const patientName = String(raw.patientName || raw.paciente || raw.Paciente || '').trim();
   const patientDni = String(raw.patientDni || raw.cedula || raw.Cedula || '').trim();
@@ -354,7 +354,6 @@ export class IndexedDBService {
   public async seedDefaultData(): Promise<void> {
     try {
       await this.seedDefaultUsers();
-      await this.seedDefaultDoctors();
       await this.seedDefaultSpecialties();
     } catch (e) {
       console.warn('Could not seed default data:', e);
@@ -490,29 +489,38 @@ export class IndexedDBService {
 
   public async saveDoctor(doctor: Doctor): Promise<void> {
     const db = await this.initDB();
-    const mppsVal = doctor.mpps || doctor.mppsNumber || '';
-    const impresVal = doctor.impres || doctor.impresNumber || '';
-    // Normalize fields
+    const raw = doctor as any;
+    const mppsVal = doctor.mpps || doctor.mppsNumber || raw.MPPS || raw.Mpps || '';
+    const impresVal = doctor.impres || doctor.impresNumber || raw.IMPRES || raw.Impres || '';
+    const docName = doctor.nombre || doctor.name || raw.Nombre || raw.Nombre_Medico || raw.medico || raw.Medico || 'Médico Asignado';
+    const docSpec = doctor.especialidad || doctor.specialty || raw.Especialidad || 'Medicina General';
+    const docHorario = doctor.horarioAtencion || doctor.schedule || raw.HorarioAtencion || raw.horario || '08:00 - 14:00';
+    const docRoom = doctor.consultorio || doctor.room || raw.Consultorio || 'Consultorio 101';
+    const docTel = doctor.telefono || doctor.phone || raw.Telefono || '';
+    const docEmail = doctor.email || raw.Email || raw.Correo || '';
+    const docEstado = doctor.estado || raw.Estado || (doctor.active === false ? 'INACTIVO' : 'ACTIVO');
+    const docId = doctor.id || raw.ID_Medico || raw.id_medico || `DOC-${Date.now().toString().substring(5)}`;
+
     const docObj: Doctor = {
       ...doctor,
-      id: doctor.id || `DOC-${Date.now().toString().substring(5)}`,
-      nombre: doctor.nombre || doctor.name || '',
-      name: doctor.nombre || doctor.name || '',
-      especialidad: doctor.especialidad || doctor.specialty || 'Medicina General',
-      specialty: doctor.especialidad || doctor.specialty || 'Medicina General',
-      horarioAtencion: doctor.horarioAtencion || doctor.schedule || '08:00 - 14:00',
-      schedule: doctor.horarioAtencion || doctor.schedule || '08:00 - 14:00',
-      consultorio: doctor.consultorio || doctor.room || 'Consultorio 101',
-      room: doctor.consultorio || doctor.room || 'Consultorio 101',
-      telefono: doctor.telefono || doctor.phone || '',
-      phone: doctor.telefono || doctor.phone || '',
-      email: doctor.email || '',
+      id: docId,
+      nombre: docName,
+      name: docName,
+      especialidad: docSpec,
+      specialty: docSpec,
+      horarioAtencion: docHorario,
+      schedule: docHorario,
+      consultorio: docRoom,
+      room: docRoom,
+      telefono: docTel,
+      phone: docTel,
+      email: docEmail,
       mpps: mppsVal,
       impres: impresVal,
       mppsNumber: mppsVal,
       impresNumber: impresVal,
-      estado: doctor.estado || (doctor.active === false ? 'INACTIVO' : 'ACTIVO'),
-      active: doctor.estado === 'ACTIVO' || doctor.active !== false,
+      estado: docEstado,
+      active: String(docEstado).toUpperCase() !== 'INACTIVO' && doctor.active !== false,
     };
 
     // Auto-save specialty if not in list
@@ -544,28 +552,38 @@ export class IndexedDBService {
 
         let completed = 0;
         doctors.forEach((d) => {
-          const mppsVal = d.mpps || d.mppsNumber || (d as any).MPPS || '';
-          const impresVal = d.impres || d.impresNumber || (d as any).IMPRES || '';
+          const raw = d as any;
+          const mppsVal = d.mpps || d.mppsNumber || raw.MPPS || raw.Mpps || '';
+          const impresVal = d.impres || d.impresNumber || raw.IMPRES || raw.Impres || '';
+          const docName = d.nombre || d.name || raw.Nombre || raw.Nombre_Medico || raw.medico || raw.Medico || 'Médico Asignado';
+          const docSpec = d.especialidad || d.specialty || raw.Especialidad || 'Medicina General';
+          const docHorario = d.horarioAtencion || d.schedule || raw.HorarioAtencion || raw.horario || '08:00 - 14:00';
+          const docRoom = d.consultorio || d.room || raw.Consultorio || 'Consultorio 101';
+          const docTel = d.telefono || d.phone || raw.Telefono || '';
+          const docEmail = d.email || raw.Email || raw.Correo || '';
+          const docEstado = d.estado || raw.Estado || (d.active === false ? 'INACTIVO' : 'ACTIVO');
+          const docId = d.id || raw.ID_Medico || raw.id_medico || `DOC-${Date.now().toString().substring(5)}`;
+
           const docObj: Doctor = {
             ...d,
-            id: d.id || `DOC-${Date.now().toString().substring(5)}`,
-            nombre: d.nombre || d.name || '',
-            name: d.nombre || d.name || '',
-            especialidad: d.especialidad || d.specialty || 'Medicina General',
-            specialty: d.especialidad || d.specialty || 'Medicina General',
-            horarioAtencion: d.horarioAtencion || d.schedule || '08:00 - 14:00',
-            schedule: d.horarioAtencion || d.schedule || '08:00 - 14:00',
-            consultorio: d.consultorio || d.room || 'Consultorio 101',
-            room: d.consultorio || d.room || 'Consultorio 101',
-            telefono: d.telefono || d.phone || '',
-            phone: d.telefono || d.phone || '',
-            email: d.email || '',
+            id: docId,
+            nombre: docName,
+            name: docName,
+            especialidad: docSpec,
+            specialty: docSpec,
+            horarioAtencion: docHorario,
+            schedule: docHorario,
+            consultorio: docRoom,
+            room: docRoom,
+            telefono: docTel,
+            phone: docTel,
+            email: docEmail,
             mpps: mppsVal,
             impres: impresVal,
             mppsNumber: mppsVal,
             impresNumber: impresVal,
-            estado: d.estado || (d.active === false ? 'INACTIVO' : 'ACTIVO'),
-            active: d.estado === 'ACTIVO' || d.active !== false,
+            estado: docEstado,
+            active: String(docEstado).toUpperCase() !== 'INACTIVO' && d.active !== false,
           };
           const req = store.put(docObj);
           req.onsuccess = () => {
@@ -592,22 +610,8 @@ export class IndexedDBService {
   }
 
   public async seedDefaultDoctors(): Promise<void> {
-    try {
-      const db = await this.initDB();
-      const tx = db.transaction('doctors', 'readonly');
-      const store = tx.objectStore('doctors');
-      const countReq = store.count();
-
-      countReq.onsuccess = async () => {
-        if (countReq.result === 0) {
-          for (const doc of INITIAL_DOCTORS) {
-            await this.saveDoctor(doc);
-          }
-        }
-      };
-    } catch (e) {
-      console.warn('Could not seed default doctors:', e);
-    }
+    // Doctors are maintained dynamically via Google Sheets sync or reception registrations.
+    return Promise.resolve();
   }
 
   // --- SPECIALTIES METHODS (Dual mode: Select existing or Add manual custom) ---
