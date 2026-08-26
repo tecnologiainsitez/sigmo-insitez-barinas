@@ -133,12 +133,12 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
   const [address, setAddress] = useState('');
   const [antecedentes, setAntecedentes] = useState('');
   const [category, setCategory] = useState<PatientCategory>('Titular');
-  const [condition, setCondition] = useState<PatientCondition>('Docente Activo');
+  const [condition, setCondition] = useState<PatientCondition | string>('');
 
   // Beneficiary-specific Titular fields
   const [titularDni, setTitularDni] = useState('');
   const [titularName, setTitularName] = useState('');
-  const [titularCondition, setTitularCondition] = useState<PatientCondition>('Docente Activo');
+  const [titularCondition, setTitularCondition] = useState<PatientCondition | string>('Docente Activo');
   const [titularKinship, setTitularKinship] = useState<Kinship>('Hijo/a');
 
   // Community Minor-specific Guardian/Representative fields
@@ -197,7 +197,15 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
     setExpedienteNumber(`EXP-${year}-${padded}`);
   };
 
-  // Reset form
+  // Handle Category Change (leave condition blank for Comunidad and Estudiante)
+  const handleCategoryChange = (newCategory: PatientCategory) => {
+    setCategory(newCategory);
+    if (newCategory === 'Comunidad' || newCategory === 'Estudiante') {
+      setCondition('');
+    }
+  };
+
+  // Reset form / Cancel editing
   const resetForm = () => {
     setDni('');
     setExpedienteNumber('');
@@ -208,7 +216,7 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
     setAddress('');
     setAntecedentes('');
     setCategory('Titular');
-    setCondition('Docente Activo');
+    setCondition('');
     setTitularDni('');
     setTitularName('');
     setTitularCondition('Docente Activo');
@@ -231,10 +239,11 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
     setEmail(p.email || p.correo || '');
     setAddress(p.address || p.direccion || '');
     setAntecedentes(p.antecedentes || p.medicalHistory || p.historiaMedica || '');
-    setCategory(p.category || 'Titular');
-    setCondition((p.condition as PatientCondition) || 'Docente Activo');
+    const pCat = p.category || 'Titular';
+    setCategory(pCat);
+    setCondition((p.condition as PatientCondition) || p.condicion || '');
 
-    if (p.category === 'Beneficiario' && (p.titularData || p.datosTitular)) {
+    if (pCat === 'Beneficiario' && (p.titularData || p.datosTitular)) {
       const t = p.titularData || p.datosTitular;
       setTitularDni(t?.cedula || '');
       setTitularName(t?.nombreCompleto || '');
@@ -355,8 +364,8 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
       historiaMedica: antecedentes.trim(),
       category,
       categoria: category,
-      condition,
-      condicion: condition,
+      condition: condition.trim() || undefined,
+      condicion: condition.trim() || undefined,
       titularData: titularInfo,
       datosTitular: titularInfo,
       guardianData: guardianInfo,
@@ -526,7 +535,7 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
 
       {/* SECTION 1: REGISTRATION & EDITING FORM */}
       <div id="patient-form-card" className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-teal-600" />
             <h3 className="font-bold text-sm text-slate-800">
@@ -534,9 +543,21 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
             </h3>
           </div>
           {editingPatientDni && (
-            <span className="text-xs bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full font-semibold">
-              Editando CI: {editingPatientDni}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-semibold border border-amber-300 flex items-center gap-1">
+                <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                Editando CI: {editingPatientDni}
+              </span>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition border border-slate-300 cursor-pointer shadow-xs"
+                title="Cancelar edición y volver a modo nuevo registro"
+              >
+                <X className="w-3.5 h-3.5 text-slate-600" />
+                <span>Cancelar Edición</span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -667,7 +688,7 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
               </label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as PatientCategory)}
+                onChange={(e) => handleCategoryChange(e.target.value as PatientCategory)}
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-slate-900 bg-white font-semibold"
               >
                 {CATEGORIES.map((cat) => (
@@ -680,14 +701,18 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
 
             {/* Condición */}
             <div className="md:col-span-4">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Condición Laboral / Académica *
+              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                <span>Condición Laboral / Académica</span>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  {category === 'Comunidad' || category === 'Estudiante' ? '(Opcional / En blanco)' : '(Opcional)'}
+                </span>
               </label>
               <select
                 value={condition}
-                onChange={(e) => setCondition(e.target.value as PatientCondition)}
+                onChange={(e) => setCondition(e.target.value)}
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-slate-900 bg-white"
               >
+                <option value="">-- Sin Condición (En blanco) --</option>
                 {CONDITIONS.map((cond) => (
                   <option key={cond} value={cond}>
                     {cond}
@@ -890,21 +915,46 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
 
           {/* Form Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-200 flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={resetForm}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
-            >
-              Limpiar Formulario
-            </button>
+            <div className="flex items-center gap-2">
+              {editingPatientDni ? (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                  <span>Cancelar Edición</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                >
+                  Limpiar Formulario
+                </button>
+              )}
+            </div>
 
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-sm transition active:scale-95 flex items-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              {editingPatientDni ? 'Actualizar Paciente en Padrón' : 'Guardar Paciente / Afiliado'}
-            </button>
+            <div className="flex items-center gap-2">
+              {editingPatientDni && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer border border-slate-300"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Descartar</span>
+                </button>
+              )}
+              <button
+                type="submit"
+                className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-sm transition active:scale-95 flex items-center gap-2 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                {editingPatientDni ? 'Guardar Cambios / Actualizar Paciente' : 'Guardar Paciente / Afiliado'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -951,6 +1001,29 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
           </div>
         </div>
 
+        {/* Editing Mode Banner in Directory */}
+        {editingPatientDni && (
+          <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-2.5 text-xs flex items-center justify-between flex-wrap gap-2 shadow-inner animate-fadeIn">
+            <div className="flex items-center gap-2 font-medium">
+              <span className="p-1 bg-amber-700/60 rounded-md">
+                <Edit3 className="w-3.5 h-3.5 text-amber-200" />
+              </span>
+              <span>
+                <strong>Modo de Edición Activo:</strong> Editando los datos del paciente con Cédula <strong>{editingPatientDni}</strong> ({name || 'Paciente'}).
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={resetForm}
+              className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition cursor-pointer border border-white/30 shadow-xs"
+              title="Cancelar la edición actual y salir"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Cancelar Edición</span>
+            </button>
+          </div>
+        )}
+
         {/* Patients Table */}
         <div className="overflow-x-auto custom-scrollbar-x">
           <table className="w-full min-w-[950px] text-left text-xs">
@@ -975,20 +1048,35 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
                 </tr>
               ) : (
                 filteredPatients.map((p) => {
+                  const isCurrentlyEditing = editingPatientDni === p.dni;
                   const titular = p.titularData || p.datosTitular;
                   const guardian = p.guardianData || p.representante;
                   const cat = p.category || 'Titular';
-                  const cond = p.condition || p.condicion || 'Docente Activo';
+                  const cond = p.condition || p.condicion || '';
                   const exp = p.expedienteNumber || p.numeroExpediente;
 
                   // Patient appointment metrics
                   const stats = getPatientAppointmentStats(p.dni);
 
                   return (
-                    <tr key={p.dni} className="hover:bg-slate-50/80 transition-colors">
+                    <tr
+                      key={p.dni}
+                      className={
+                        isCurrentlyEditing
+                          ? 'bg-amber-50/90 border-l-4 border-l-amber-500 transition-colors'
+                          : 'hover:bg-slate-50/80 transition-colors'
+                      }
+                    >
                       {/* Cédula & Expediente */}
                       <td className="p-3.5 whitespace-nowrap">
-                        <div className="font-mono font-bold text-slate-800">{p.dni}</div>
+                        <div className="font-mono font-bold text-slate-800 flex items-center gap-1.5">
+                          {p.dni}
+                          {isCurrentlyEditing && (
+                            <span className="text-[10px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.2 rounded border border-amber-300">
+                              En edición
+                            </span>
+                          )}
+                        </div>
                         {exp && (
                           <div className="text-[10px] font-mono font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 w-fit mt-0.5 flex items-center gap-1">
                             <Hash className="w-2.5 h-2.5" /> {exp}
@@ -1026,7 +1114,11 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
                         >
                           {cat}
                         </span>
-                        <div className="text-[11px] text-slate-600 font-medium mt-0.5">{cond}</div>
+                        {cond ? (
+                          <div className="text-[11px] text-slate-600 font-medium mt-0.5">{cond}</div>
+                        ) : (
+                          <div className="text-[11px] text-slate-400 italic mt-0.5">Sin condición</div>
+                        )}
                       </td>
 
                       {/* Recuento de Citas Summary Badge */}
@@ -1116,21 +1208,33 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
                             </button>
                           )}
 
-                          {/* Edit Patient */}
-                          <button
-                            type="button"
-                            onClick={() => handleEdit(p)}
-                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
-                            title="Editar Datos"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Edit / Cancel Edit Patient */}
+                          {isCurrentlyEditing ? (
+                            <button
+                              type="button"
+                              onClick={resetForm}
+                              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 transition shadow-xs cursor-pointer animate-pulse"
+                              title="Cancelar edición actual"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Cancelar</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(p)}
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition cursor-pointer"
+                              title="Editar Datos del Paciente"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
 
                           {/* Delete Patient */}
                           <button
                             type="button"
                             onClick={() => handleDelete(p.dni, p.name || p.nombreApellido || p.dni)}
-                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
+                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition cursor-pointer"
                             title="Eliminar Paciente"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1205,7 +1309,10 @@ export const PatientRegistrationModule: React.FC<PatientRegistrationModuleProps>
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">Categoría & Condición:</span>
                   <span className="font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 inline-block">
-                    {selectedPatientForFicha.category || 'Titular'} • {selectedPatientForFicha.condition || 'Activo'}
+                    {selectedPatientForFicha.category || 'Titular'}
+                    {selectedPatientForFicha.condition || selectedPatientForFicha.condicion
+                      ? ` • ${selectedPatientForFicha.condition || selectedPatientForFicha.condicion}`
+                      : ''}
                   </span>
                 </div>
 
