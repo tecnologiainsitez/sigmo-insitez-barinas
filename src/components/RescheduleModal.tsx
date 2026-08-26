@@ -60,7 +60,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Dynamic doctors state
-  const [doctorsList, setDoctorsList] = useState<Doctor[]>(INITIAL_DOCTORS);
+  const [doctorsList, setDoctorsList] = useState<Doctor[]>([]);
 
   useEffect(() => {
     const loadDocs = async () => {
@@ -76,10 +76,9 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
     loadDocs();
   }, []);
 
-  // Merge with appointment's doctor and INITIAL_DOCTORS
+  // Merge with appointment's doctor
   const allMergedDoctors = useMemo(() => {
     const map = new Map<string, Doctor>();
-    INITIAL_DOCTORS.forEach((d) => map.set(d.id, d));
     doctorsList.forEach((d) => {
       if (d.id) map.set(d.id, d);
     });
@@ -137,7 +136,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
   const selectedDoc = useMemo(() => {
     const foundInAvailable = availableDoctors.find((d) => d.id === doctorId);
     if (foundInAvailable) return foundInAvailable;
-    return availableDoctors[0] || allMergedDoctors[0] || INITIAL_DOCTORS[0];
+    return availableDoctors[0] || allMergedDoctors[0] || null;
   }, [availableDoctors, allMergedDoctors, doctorId]);
 
   // Auto sync doctorId if current doctorId is not in available doctors
